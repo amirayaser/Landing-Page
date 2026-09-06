@@ -608,19 +608,19 @@
       meta.appendChild(desc);
     }
 
-    if (project.project_url && SB.isSafeHttpUrl(project.project_url)) {
-      const link = document.createElement('a');
-      link.className = 'work-card__open';
-      link.href = project.project_url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.setAttribute('aria-label', `${project.title || ''} — ${t('work.view')}`);
-      link.innerHTML =
-        '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px">' +
-        '<path d="M14 3h7v7"/><path d="M21 3l-9 9"/></svg>' +
-        SB.escapeHtml(t('work.view'));
-      media.appendChild(link); // always visible pill on the media corner
-    }
+    // if (project.project_url && SB.isSafeHttpUrl(project.project_url)) {
+    //   const link = document.createElement('a');
+    //   link.className = 'work-card__open';
+    //   link.href = project.project_url;
+    //   link.target = '_blank';
+    //   link.rel = 'noopener noreferrer';
+    //   link.setAttribute('aria-label', `${project.title || ''} — ${t('work.view')}`);
+    //   link.innerHTML =
+    //     '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px">' +
+    //     '<path d="M14 3h7v7"/><path d="M21 3l-9 9"/></svg>' +
+    //     SB.escapeHtml(t('work.view'));
+    //   media.appendChild(link); // always visible pill on the media corner
+    // }
 
     card.appendChild(media);
     card.appendChild(meta);
