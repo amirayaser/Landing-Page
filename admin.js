@@ -124,7 +124,6 @@
   const toastError   = (t, m) => showToast('error', t, m, 6000);
   const toastWarning = (t, m) => showToast('warning', t, m, 6000);
 
-  /** Map common Supabase/Auth errors to friendly Arabic messages. */
   function arabicError(error, fallback = 'حدث خطأ غير متوقع.') {
     const message = error?.message || String(error || '');
     if (/invalid login credentials/i.test(message)) return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
@@ -138,9 +137,9 @@
   }
 
   /* ============== 3. Authentication ============== */
-  let currentView = null;      // 'login' | 'dashboard'
-  let adminChannel = null;     // realtime channel (dashboard only)
-  let pendingDeleteId = null;  // project id waiting for confirm
+  let currentView = null;
+  let adminChannel = null;
+  let pendingDeleteId = null;
 
   function showView(view) {
     if (currentView === view) return;
@@ -157,7 +156,6 @@
   }
 
   async function initAuth() {
-    // Login submit
     loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       hideLoginError();
@@ -173,7 +171,6 @@
         if (error) throw error;
         $('loginPassword').value = '';
         toastSuccess('تم تسجيل الدخول بنجاح', 'مرحبًا بك في لوحة إدارة نماذج الأعمال.');
-        // View switching happens through onAuthStateChange below.
       } catch (error) {
         console.error('[SJ ADV Admin] Login failed:', error);
         showLoginError(arabicError(error, 'تعذر تسجيل الدخول.'));
@@ -182,7 +179,6 @@
       }
     });
 
-    // Logout
     logoutBtn.addEventListener('click', async () => {
       try {
         await sb.auth.signOut();
@@ -193,7 +189,6 @@
       }
     });
 
-    // Session detection — single source of truth for which view is shown
     sb.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         showView('dashboard');
@@ -203,8 +198,6 @@
       }
     });
 
-    // Explicit initial session check (belt & suspenders — do not rely on
-    // onAuthStateChange timing alone; also survives restored sessions).
     try {
       const { data, error } = await sb.auth.getSession();
       if (error) throw error;
@@ -226,11 +219,6 @@
   }
   function hideLoginError() { loginError.hidden = true; }
 
-  /**
-   * Authorization (not authentication): verify the logged-in user exists
-   * in public.admin_users. RLS is the real gate; this banner just explains
-   * why writes would fail for a non-admin account.
-   */
   async function checkAdminAuthorization(userId) {
     authzBanner.hidden = true;
     try {
@@ -246,8 +234,8 @@
     }
   }
 
-  /* ============== 4. Image handling ============== */
-  let selectedFile = null; // File object chosen for upload (takes priority over URL)
+  /* ============== 4. Image handling with Auto Compression ============== */
+  let selectedFile = null;
 
   function initImageHandling() {
     uploadBtn.addEventListener('click', () => imageFile.click());
@@ -256,7 +244,6 @@
       const file = imageFile.files && imageFile.files[0];
       if (!file) return;
 
-      // Validate type
       const okTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
       if (!okTypes.includes(file.type)) {
         toastWarning('نوع صورة غير مدعوم', 'الصيغ المقبولة: JPG / PNG / WEBP / GIF.');
@@ -268,14 +255,13 @@
       imageUrl.value = '';
       fileName.textContent = file.name;
       fileName.hidden = false;
-      // Live preview from the local file (no upload yet — happens on submit)
+      
       const reader = new FileReader();
-      reader.onload = (e) => showPreview(e.target.result, 'جاهزة للرفع عند الحفظ', true);
+      reader.onload = (e) => showPreview(e.target.result, 'جاهزة للضغط والرفع عند الحفظ', true);
       reader.onerror = () => toastError('حدث خطأ', 'تعذر قراءة الصورة من جهازك.');
       reader.readAsDataURL(file);
     });
 
-    // URL fallback — validate format + live preview
     imageUrl.addEventListener('input', debounce(() => {
       const value = imageUrl.value.trim();
       selectedFile = null;
@@ -316,22 +302,39 @@
     setFieldError(fieldImage, false);
   }
 
-  /** Upload the selected file to Supabase Storage and return its public URL. */
+  /** Compress and upload the selected file to Supabase Storage with auto-optimization. */
   async function uploadImageToStorage() {
     if (!selectedFile) return null;
-    const safeName = selectedFile.name.replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
+
+    let fileToUpload = selectedFile;
+
+    // الضغط التلقائي للصورة قبل الرفع لحماية الخادم والمساحة المجانية
+    try {
+      const options = {
+        maxSizeMB: 0.3,          // تصغير الحجم ليصبح تحت 300 كيلوبايت كحد أقصى
+        maxWidthOrHeight: 1200,  // أبعاد مثالية تناسب شاشات الويب بدقة عالية
+        useWebWorker: true
+      };
+      fileToUpload = await imageCompression(selectedFile, options);
+    } catch (compressionError) {
+      console.warn('[SJ ADV Admin] Image compression skipped, using original file:', compressionError);
+    }
+
+    const safeName = fileToUpload.name ? fileToUpload.name.replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-') : 'project-image.jpg';
     const path = `projects/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    
     const { error } = await sb.storage
       .from(BUCKET)
-      .upload(path, selectedFile, { cacheControl: '3600', upsert: false, contentType: selectedFile.type });
+      .upload(path, fileToUpload, { cacheControl: '3600', upsert: false, contentType: fileToUpload.type || selectedFile.type });
     if (error) throw error;
+    
     const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
     return data?.publicUrl || null;
   }
 
   /* ============== 5. Form (add / edit) ============== */
-  let editingId = null;   // project id currently being edited (null = add mode)
-  let cachedProjects = []; // local mirror for quick edit-fill
+  let editingId = null;
+  let cachedProjects = [];
 
   function setFieldError(fieldEl, hasError) { fieldEl.classList.toggle('has-error', !!hasError); }
   function setEditMode(on) {
@@ -342,7 +345,7 @@
   }
 
   function fillForm(project) {
-    editingId = project.id; // mark the form as EDITING this project
+    editingId = project.id;
     projectTitle.value = project.title || '';
     projectCategory.value = CATEGORIES.includes(project.category) ? project.category : 'أخرى';
     projectDesc.value = project.description || '';
@@ -374,14 +377,12 @@
     const imgValue = imageUrl.value.trim();
     const linkValue = projectUrl.value.trim();
 
-    setFieldError(fieldTitle, !title);           if (!title) ok = false;
-    setFieldError(fieldCategory, !category);     if (!category) ok = false;
+    setFieldError(fieldTitle, !title); if (!title) ok = false;
+    setFieldError(fieldCategory, !category); if (!category) ok = false;
 
-    // Image: a selected file OR a valid http(s) URL (or nothing at all)
     if (!selectedFile && imgValue && !isSafeHttpUrl(imgValue)) { setFieldError(fieldImage, true); ok = false; }
     else setFieldError(fieldImage, false);
 
-    // Project link: optional but must be a safe URL when present
     if (linkValue && !isSafeHttpUrl(linkValue)) { setFieldError(fieldUrl, true); ok = false; }
     else setFieldError(fieldUrl, false);
 
@@ -404,7 +405,6 @@
 
       setButtonLoading(submitBtn, true);
       try {
-        // 1) Upload image (if a file was chosen) → public URL
         let uploadedUrl = null;
         if (selectedFile) {
           try {
@@ -420,7 +420,6 @@
           }
         }
 
-        // 2) Build payload (uploaded file URL wins over the URL field)
         const payload = {
           title: projectTitle.value.trim(),
           category: projectCategory.value,
@@ -429,7 +428,6 @@
           project_url: projectUrl.value.trim() || null
         };
 
-        // 3) Insert or update (updated_at is handled by the DB trigger)
         let dbError;
         if (editingId) {
           ({ error: dbError } = await sb.from('projects').update(payload).eq('id', editingId));
@@ -443,7 +441,7 @@
           'ظهر التغيير مباشرة على الموقع بفضل Supabase Realtime.'
         );
         resetForm();
-        await loadProjects(); // realtime also fires; direct load keeps the table instant
+        await loadProjects();
       } catch (error) {
         console.error('[SJ ADV Admin] Save failed:', error);
         toastError('حدث خطأ', arabicError(error, editingId ? 'تعذر تعديل المشروع.' : 'تعذر إضافة المشروع.'));
@@ -493,7 +491,7 @@
       return;
     }
 
- projectsTbody.innerHTML = projects.map((p) => `
+    projectsTbody.innerHTML = projects.map((p) => `
       <tr data-id="${SB.escapeAttribute(p.id)}">
         <td>${thumbCell(p)}</td>
         <td class="td-title">${escapeHtml(p.title)}</td>
@@ -511,9 +509,9 @@
           </button>
         </td>
       </tr>`).join('');
+  }
 
-    }
-      async function loadProjects() {
+  async function loadProjects() {
     if (tableLoading || !isConfigured) return;
     tableLoading = true;
     projectsTbody.innerHTML = skeletonRows();
@@ -543,15 +541,12 @@
     }
   }
 
-  /** Table clicks: تعديل / حذف (event delegation — no duplicate listeners). */
-/** Table clicks: تعديل / حذف (event delegation — flexible id matching). */
   function initTableActions() {
     projectsTbody.addEventListener('click', (event) => {
       const btn = event.target.closest('button[data-action]');
       if (!btn) return;
       const id = btn.dataset.id;
       
-      // استخدام مقارنة مرنة == لضمان توافق الـ id سواء كان نصاً أو رقماً في قاعدة البيانات
       const project = cachedProjects.find(p => String(p.id) === String(id));
       if (!project) return;
 
@@ -563,7 +558,6 @@
       }
     });
 
-    // Broken thumbnails inside the table → show placeholder (error events don't bubble)
     projectsTbody.addEventListener('error', (event) => {
       const img = event.target;
       if (img.tagName !== 'IMG') return;
@@ -620,7 +614,7 @@
     adminChannel = sb
       .channel('projects-admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
-        loadProjects(); // debounced by realtime event rate; cheap for admin use
+        loadProjects();
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') console.info('[SJ ADV Admin] Realtime connected.');
@@ -645,14 +639,11 @@
 
   function init() {
     if (!isConfigured) {
-      // Still show the login screen but with a clear configuration error.
       loginView.hidden = false;
       configError.hidden = false;
       loginBtn.disabled = true;
       return;
     }
-    // Remove the pre-JS loading state (the HTML ships with .is-loading which
-    // sets pointer-events:none — it must be cleared or the button is dead).
     setButtonLoading(loginBtn, false);
     initAuth();
     initForm();
