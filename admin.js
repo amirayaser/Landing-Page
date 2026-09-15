@@ -309,14 +309,15 @@
     let fileToUpload = selectedFile;
 
     // الضغط التلقائي للصورة قبل الرفع لحماية الخادم والمساحة المجانية
-    try {
+ try {
       const options = {
-        maxSizeMB: 0.3,          // تصغير الحجم ليصبح تحت 300 كيلوبايت كحد أقصى
-        maxWidthOrHeight: 1200,  // أبعاد مثالية تناسب شاشات الويب بدقة عالية
+        maxSizeMB: 0.2,          // تقليل الحجم المستهدف إلى 200 كيلوبايت
+        maxWidthOrHeight: 1000,  // تقليل الأبعاد القصوى للعرض أو الارتفاع لضمان خفة الحجم
+        initialQuality: 0.7,     // ضغط الجودة بنسبة تناسب الويب تماماً
         useWebWorker: true
       };
       fileToUpload = await imageCompression(selectedFile, options);
-    } catch (compressionError) {
+    } catch (compressionError)  {
       console.warn('[SJ ADV Admin] Image compression skipped, using original file:', compressionError);
     }
 
