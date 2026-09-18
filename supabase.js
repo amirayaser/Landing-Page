@@ -22,8 +22,8 @@
   'use strict';
 
   /* ⬇⬇⬇  PASTE YOUR SUPABASE CREDENTIALS HERE  ⬇⬇⬇ */
-  const SUPABASE_URL = "https://yagpniqdztrksfsfvuqw.supabase.co";                 // e.g. "https://abcdefgh.supabase.co"
-  const SUPABASE_KEY = "sb_publishable_6Jdw63HuU22rlGl0qDSMpw_ZGTZMTf1";     // e.g. "eyJhbGciOiJI..." (anon public key ONLY)
+ const SUPABASE_URL = "https://zlzvoyrvjbdhvhlwihjp.supabase.co";                  // رابط المشروع الجديد
+  const SUPABASE_KEY = "sb_publishable_VPc8LLnXBEdKJnZe3UTBCA_8K3un28O";     // المفتاح الجديد الذي ظهر في الشاشة     // e.g. "eyJhbGciOiJI..." (anon public key ONLY)
   /* ⬆⬆⬆  PASTE YOUR SUPABASE CREDENTIALS HERE  ⬆⬆⬆ */
 
   // Configured = SDK loaded + URL looks like https://… + key looks like a JWT/anon key.
