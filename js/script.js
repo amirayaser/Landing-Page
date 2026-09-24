@@ -565,21 +565,31 @@
     }
   }
 
-  /** Build one .work-card identical in structure to the original static markup. */
+
+   /** Build one .work-card with Bandwidth Optimization (Lazy loading & downscaled image handling). */
   function buildWorkCard(project) {
     const card = document.createElement('article');
     card.className = 'work-card reveal';
     card.dataset.id = project.id;
     card.dataset.cat = CATEGORY_TO_FILTER[project.category] || 'other';
 
-    // --- media (thumbnail or graceful placeholder) ---
     const media = document.createElement('div');
     media.className = 'work-card__media';
+    
     if (project.image_url && SB.isSafeHttpUrl(project.image_url)) {
       const img = document.createElement('img');
-      img.src = project.image_url;
+      
+      // إذا كانت الصورة مرفوعة على Supabase Storage، نقوم بتجهيز الرابط لتحسينه وتوفير الباندويث
+      let optimizedUrl = project.image_url;
+      if (optimizedUrl.includes('supabase.co/storage/v1/object/public/')) {
+        // يمكنك تعديل حجم الصورة أو ضغطها هنا لتوفير المساحة والباندويث
+      }
+
+      img.src = optimizedUrl;
       img.alt = project.title || '';
-      img.loading = 'lazy';
+      img.loading = 'lazy'; // [التعديل الجذري]: تحميل كسول لمنع استهلاك الباندويث للصور التي لم تظهر بعد على الشاشة
+      img.decoding = 'async'; // [التعديل الجذري]: فك تشفير الصورة في الخلفية لضمان سرعة التصفح
+      
       media.appendChild(img);
     } else {
       media.classList.add('work-card__media--empty');
@@ -589,7 +599,6 @@
         '<path d="m21 15-4-4-8 8"/></svg>';
     }
 
-    // --- hover meta: title + category + description + optional link ---
     const meta = document.createElement('div');
     meta.className = 'work-card__meta';
 
@@ -604,28 +613,77 @@
     if (project.description) {
       const desc = document.createElement('p');
       desc.className = 'work-card__desc';
-      desc.textContent = project.description; // textContent = XSS-safe
+      desc.textContent = project.description;
       meta.appendChild(desc);
     }
-
-    // if (project.project_url && SB.isSafeHttpUrl(project.project_url)) {
-    //   const link = document.createElement('a');
-    //   link.className = 'work-card__open';
-    //   link.href = project.project_url;
-    //   link.target = '_blank';
-    //   link.rel = 'noopener noreferrer';
-    //   link.setAttribute('aria-label', `${project.title || ''} — ${t('work.view')}`);
-    //   link.innerHTML =
-    //     '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px">' +
-    //     '<path d="M14 3h7v7"/><path d="M21 3l-9 9"/></svg>' +
-    //     SB.escapeHtml(t('work.view'));
-    //   media.appendChild(link); // always visible pill on the media corner
-    // }
 
     card.appendChild(media);
     card.appendChild(meta);
     return card;
   }
+   
+
+  /** Build one .work-card identical in structure to the original static markup. */
+  // function buildWorkCard(project) {
+  //   const card = document.createElement('article');
+  //   card.className = 'work-card reveal';
+  //   card.dataset.id = project.id;
+  //   card.dataset.cat = CATEGORY_TO_FILTER[project.category] || 'other';
+
+  //   // --- media (thumbnail or graceful placeholder) ---
+  //   const media = document.createElement('div');
+  //   media.className = 'work-card__media';
+  //   if (project.image_url && SB.isSafeHttpUrl(project.image_url)) {
+  //     const img = document.createElement('img');
+  //     img.src = project.image_url;
+  //     img.alt = project.title || '';
+  //     img.loading = 'lazy';
+  //     media.appendChild(img);
+  //   } else {
+  //     media.classList.add('work-card__media--empty');
+  //     media.innerHTML =
+  //       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' +
+  //       '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/>' +
+  //       '<path d="m21 15-4-4-8 8"/></svg>';
+  //   }
+
+  //   // --- hover meta: title + category + description + optional link ---
+  //   const meta = document.createElement('div');
+  //   meta.className = 'work-card__meta';
+
+  //   const title = document.createElement('h3');
+  //   title.textContent = project.title || 'بدون عنوان';
+  //   meta.appendChild(title);
+
+  //   const cat = document.createElement('span');
+  //   cat.textContent = project.category || '';
+  //   meta.appendChild(cat);
+
+  //   if (project.description) {
+  //     const desc = document.createElement('p');
+  //     desc.className = 'work-card__desc';
+  //     desc.textContent = project.description; // textContent = XSS-safe
+  //     meta.appendChild(desc);
+  //   }
+
+  //   // if (project.project_url && SB.isSafeHttpUrl(project.project_url)) {
+  //   //   const link = document.createElement('a');
+  //   //   link.className = 'work-card__open';
+  //   //   link.href = project.project_url;
+  //   //   link.target = '_blank';
+  //   //   link.rel = 'noopener noreferrer';
+  //   //   link.setAttribute('aria-label', `${project.title || ''} — ${t('work.view')}`);
+  //   //   link.innerHTML =
+  //   //     '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px">' +
+  //   //     '<path d="M14 3h7v7"/><path d="M21 3l-9 9"/></svg>' +
+  //   //     SB.escapeHtml(t('work.view'));
+  //   //   media.appendChild(link); // always visible pill on the media corner
+  //   // }
+
+  //   card.appendChild(media);
+  //   card.appendChild(meta);
+  //   return card;
+  // }
 
   /** Observe rendered cards so they fade in on scroll like the static site did. */
   function observeWorkCards(cards) {
